@@ -1,0 +1,13 @@
+{
+  "repository": "example-org/example-repo",
+  "workflow": "CI/CD - Docker to AWS ECR + GenAI",
+  "run_number": "42",
+  "commit_sha": "0123456789abcdef",
+  "branch": "main",
+  "event": "push",
+  "test_result": "success",
+  "build_and_scan_result": "success",
+  "deployment_result": "success",
+  "image_uri": "123456789012.dkr.ecr.ap-south-1.amazonaws.com/genai-cicd-demo:0123456789abcdef",
+  "deployment_target": "Amazon ECR"
+}

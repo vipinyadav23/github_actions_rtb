@@ -1,0 +1,9 @@
+aws_region = "ap-south-1"
+ecr_repository_name = "genai-cicd-demo"
+github_org = "YOUR_GITHUB_ORG"
+github_repo = "YOUR_REPO"
+# Existing/legacy subject:
+# repo:YOUR_GITHUB_ORG/YOUR_REPO:ref:refs/heads/main
+# New repos created after 2026-07-15 default to immutable subjects:
+# repo:YOUR_GITHUB_ORG@OWNER_ID/YOUR_REPO@REPO_ID:ref:refs/heads/main
+oidc_subject = "repo:YOUR_GITHUB_ORG/YOUR_REPO:ref:refs/heads/main"

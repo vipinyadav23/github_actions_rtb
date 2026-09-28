@@ -1,0 +1,128 @@
+name: CI/CD - Docker to AWS ECR + GenAI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  build-and-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build --label org.opencontainers.image.revision="${GITHUB_SHA}" -t "${ECR_REPOSITORY}:${GITHUB_SHA}" .
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+  push-ecr:
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    if: github.event_name != 'pull_request'
+    outputs:
+      image_uri: ${{ steps.image.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-ecr
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        id: image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" -t "$IMAGE_URI" -t "$REGISTRY/$ECR_REPOSITORY:$SHORT_SHA" .
+          docker push "$IMAGE_URI"
+          docker push "$REGISTRY/$ECR_REPOSITORY:$SHORT_SHA"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            docker tag "$IMAGE_URI" "$REGISTRY/$ECR_REPOSITORY:latest"
+            docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          fi
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+  ai-report:
+    runs-on: ubuntu-latest
+    needs: [test, build-and-scan, push-ecr]
+    if: always() && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - run: pip install openai
+      - name: Collect pipeline metadata
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          BUILD_RESULT: ${{ needs.build-and-scan.result }}
+          DEPLOY_RESULT: ${{ needs.push-ecr.result }}
+          IMAGE_URI: ${{ needs.push-ecr.outputs.image_uri }}
+        run: |
+          python - <<'PY'
+          import json, os
+          data = {
+            "repository": os.environ["GITHUB_REPOSITORY"],
+            "workflow": os.environ["GITHUB_WORKFLOW"],
+            "run_number": os.environ["GITHUB_RUN_NUMBER"],
+            "commit_sha": os.environ["GITHUB_SHA"],
+            "branch": os.environ["GITHUB_REF_NAME"],
+            "event": os.environ["GITHUB_EVENT_NAME"],
+            "test_result": os.environ["TEST_RESULT"],
+            "build_and_scan_result": os.environ["BUILD_RESULT"],
+            "deployment_result": os.environ["DEPLOY_RESULT"],
+            "image_uri": os.environ["IMAGE_URI"],
+            "deployment_target": "Amazon ECR"
+          }
+          open("pipeline.json", "w").write(json.dumps(data, indent=2))
+          PY
+      - name: Generate AI report
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/generate_ai_report.py pipeline.json > ai-report.md
+      - name: Publish AI report
+        run: |
+          { echo "## 🤖 AI CI/CD Report"; cat ai-report.md; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-cicd-report
+          path: ai-report.md
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [test, build-and-scan, push-ecr, ai-report]
+    if: always()
+    steps:
+      - run: |
+          { echo "# 🚀 CI/CD Pipeline"; echo; echo "| Stage | Result |"; echo "|---|---|"; echo "| Tests | ${{ needs.test.result }} |"; echo "| Docker build + scan | ${{ needs.build-and-scan.result }} |"; echo "| ECR push | ${{ needs.push-ecr.result }} |"; echo "| GenAI report | ${{ needs.ai-report.result }} |"; } >> "$GITHUB_STEP_SUMMARY"

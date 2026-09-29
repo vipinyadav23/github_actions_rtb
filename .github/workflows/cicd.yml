@@ -73,7 +73,8 @@ jobs:
           docker build \
           --label org.opencontainers.image.revision="$GITHUB_SHA" \
           -t "$IMAGE_URI" \
-          -t "$SHORT_IMAGE_URI" 
+          -t "$SHORT_IMAGE_URI" \
+          .
           
           docker push "$IMAGE_URI"
           docker push "$SHORT_IMAGE_URI"

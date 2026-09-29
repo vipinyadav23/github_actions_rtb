@@ -19,7 +19,7 @@ def main():
         print("OPENAI_API_KEY is not configured", file=sys.stderr); return 2
     payload = json.loads(Path(sys.argv[1]).read_text())
     response = OpenAI(api_key=key).responses.create(
-        model=os.environ.get("OPENAI_MODEL", "gpt-5-mini"),
+        model=os.environ.get("OPENAI_MODEL", "gpt-6-luma"),
         instructions=SYSTEM_PROMPT,
         input=json.dumps(payload, indent=2),
     )

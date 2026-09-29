@@ -65,14 +65,20 @@ jobs:
         run: |
           SHORT_SHA="${GITHUB_SHA:0:12}"
           IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
-          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" -t "$IMAGE_URI" -t "$REGISTRY/$ECR_REPOSITORY:$SHORT_SHA" .
+          SHORT_IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$SHORT_SHA"
+          echo "Building image:"
+          echo "$IMAGE_URI"
+          echo "$SHORT_IMAGE_URI"
+          
+          docker build \
+          --label org.opencontainers.image.revision="$GITHUB_SHA" \
+          -t "$IMAGE_URI" \
+          -t "$SHORT_IMAGE_URI" \
+          
           docker push "$IMAGE_URI"
-          docker push "$REGISTRY/$ECR_REPOSITORY:$SHORT_SHA"
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            docker tag "$IMAGE_URI" "$REGISTRY/$ECR_REPOSITORY:latest"
-            docker push "$REGISTRY/$ECR_REPOSITORY:latest"
-          fi
+          docker push "$SHORT_IMAGE_URI"
           echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "short_image_uri=$SHORT_IMAGE_URI" >> "$GITHUB_OUTPUT"
 
   ai-report:
     runs-on: ubuntu-latest

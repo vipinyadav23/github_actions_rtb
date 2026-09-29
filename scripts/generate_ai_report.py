@@ -1,33 +1,74 @@
 import json
 import os
 import sys
-from pathlib import Path
-from openai import OpenAI
 
-SYSTEM_PROMPT = """You are an AI assistant embedded in a DevOps CI/CD pipeline.
-Convert structured pipeline metadata into a concise engineering report.
-Do not invent test results, security findings, deployments, or code changes.
-Clearly distinguish observed facts from recommendations. Never expose secrets.
-Keep the report suitable for a GitHub Actions Job Summary. Return Markdown.
-Use headings: Build Summary, Changes, Validation, Deployment, Risks / Follow-up, Release Notes."""
+from google import genai
+
+
+SYSTEM_PROMPT = """
+You are an AI assistant integrated into a CI/CD pipeline.
+
+Generate a concise but useful Markdown deployment report.
+
+Use exactly these sections:
+
+## Build Summary
+## Changes
+## Validation
+## Deployment
+## Risks / Follow-up
+## Release Notes
+
+Rules:
+- Use only the information supplied in the pipeline JSON.
+- Do not invent test results.
+- Do not invent deployment results.
+- Do not expose secrets, API keys, credentials, or tokens.
+- If information is missing, explicitly say it is unavailable.
+- Keep the report suitable for a software release/change record.
+"""
+
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python scripts/generate_ai_report.py pipeline.json", file=sys.stderr); return 2
-    key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        print("OPENAI_API_KEY is not configured", file=sys.stderr); return 2
-    payload = json.loads(Path(sys.argv[1]).read_text())
-    client = OpenAI(api_key=key)
-    response = client.responses.create(
-        model=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
-        instructions=SYSTEM_PROMPT,
-        input=json.dumps(payload, indent=2),
+        raise SystemExit(
+            "Usage: python scripts/generate_ai_report.py pipeline.json"
+        )
+
+    input_file = sys.argv[1]
+
+    with open(input_file, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise SystemExit("GEMINI_API_KEY is not configured")
+
+    model = os.environ.get(
+        "GEMINI_MODEL",
+        "gemini-2.5-flash-lite",
     )
-    report = response.output_text.strip()
-    if not report:
-        print("OpenAI returned an empty report", file=sys.stderr); return 1
-    print(report); return 0
+
+    client = genai.Client(api_key=api_key)
+
+    prompt = f"""
+{SYSTEM_PROMPT}
+
+Pipeline data:
+
+{json.dumps(payload, indent=2)}
+"""
+
+    response = client.models.generate_content(
+        model=model,
+        contents=prompt,
+    )
+
+    if not response.text:
+        raise SystemExit("Gemini returned an empty response")
+
+    print(response.text)
+
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

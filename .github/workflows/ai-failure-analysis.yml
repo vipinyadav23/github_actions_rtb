@@ -15,7 +15,7 @@ on:
 permissions:
   contents: read
 env:
-  OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
-      - run: pip install openai
+      - run: pip install google-genai
       - name: Build sanitized failure payload
         env:
           FAILURE_TYPE: ${{ inputs.failure_type }}

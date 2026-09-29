@@ -20,7 +20,7 @@ def main():
     payload = json.loads(Path(sys.argv[1]).read_text())
     client = OpenAI(api_key=key)
     response = client.responses.create(
-        model=os.environ.get("OPENAI_MODEL", "gpt-5-mini"),
+        model=os.environ.get("OPENAI_MODEL", "gpt-6-luna"),
         instructions=SYSTEM_PROMPT,
         input=json.dumps(payload, indent=2),
     )

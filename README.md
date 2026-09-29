@@ -10,7 +10,7 @@ Reference implementation covering Docker CI/CD, tests, Trivy scanning, GitHub OI
 - `.github/workflows/cicd.yml` main CI/CD pipeline
 - `.github/workflows/ai-failure-analysis.yml` manual AI troubleshooting workflow
 - `docs/` architecture and demo script
-
+ 
 ## Setup
 
 ### 1. AWS/Terraform

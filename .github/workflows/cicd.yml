@@ -13,7 +13,7 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+  GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
 
 jobs:
   test:
@@ -116,7 +116,7 @@ jobs:
           PY
       - name: Generate AI report
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python scripts/generate_ai_report.py pipeline.json > ai-report.md
       - name: Publish AI report
         run: |

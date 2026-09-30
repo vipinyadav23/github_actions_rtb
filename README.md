@@ -1,5 +1,5 @@
 # GitHub Actions + GenAI CI/CD -> AWS ECR
-
+ 
 Reference implementation covering Docker CI/CD, tests, Trivy scanning, GitHub OIDC -> AWS IAM, ECR publishing, AI-generated reports, and AI-assisted failure analysis.
 
 ## Repository
